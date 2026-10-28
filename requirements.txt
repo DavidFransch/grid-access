@@ -1,0 +1,8 @@
+# Stages 1-2: data
+pandas
+geopandas
+openpyxl
+# Stage 3: API
+fastapi
+uvicorn
+pydantic

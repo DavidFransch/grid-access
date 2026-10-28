@@ -1,0 +1,16 @@
+# Original and derived Eskom/NTCSA data: not ours to redistribute
+data/raw/
+data/processed/*
+!data/processed/.gitkeep
+
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
