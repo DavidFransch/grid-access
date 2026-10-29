@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MapRef } from 'react-map-gl/mapbox'
-import { ControlPanel, type Region } from '@/components/ControlPanel'
+import { Legend, type Region } from '@/components/Legend'
 import { MapView } from '@/components/MapView'
+import { TopBar } from '@/components/TopBar'
 import { ZonePanel } from '@/components/ZonePanel'
 import { mapData, SA_BOUNDS, type MapData } from '@/lib/data'
 import { summarise } from '@/lib/summary'
@@ -21,7 +22,7 @@ function boundsOf(features: ZoneFeature[]): [[number, number], [number, number]]
 export default function App() {
   const [data, setData] = useState<MapData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tech, setTech] = useState<Tech>('wind')
+  const [tech, setTech] = useState<Tech>('solar')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const mapRef = useRef<MapRef>(null)
 
@@ -34,7 +35,7 @@ export default function App() {
     if (import.meta.env.DEV) Object.assign(window, { __grid: { mapRef, data, tech, selectedId, setSelectedId, setTech } })
   }, [data, tech, selectedId])
 
-  const summary = useMemo(() => (data ? summarise(data.zones, tech) : null), [data, tech])
+  const summary = useMemo(() => (data ? summarise(data.zones) : null), [data])
   // generateId numbers features by their position in the file, so the id is the array index.
   const zone = data && selectedId !== null ? data.zones.features[selectedId]?.properties ?? null : null
 
@@ -50,14 +51,14 @@ export default function App() {
   return (
     <div className="fixed inset-0 bg-background">
       <MapView
-        zones={data?.zones ?? null}
-        mask={data?.mask ?? null}
+        data={data}
         tech={tech}
         selectedId={selectedId}
         onSelect={setSelectedId}
         mapRef={mapRef}
       />
-      <ControlPanel tech={tech} onTech={setTech} summary={summary} onRegion={zoomTo} />
+      <TopBar />
+      <Legend tech={tech} onTech={setTech} summary={summary} onRegion={zoomTo} />
       <ZonePanel zone={zone} tech={tech} onClose={() => setSelectedId(null)} />
       {error && (
         <div className="absolute bottom-4 left-4 z-10 rounded-md bg-destructive/90 px-3 py-2 text-sm text-white">{error}</div>

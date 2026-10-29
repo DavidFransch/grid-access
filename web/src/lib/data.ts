@@ -1,4 +1,4 @@
-import type { Mask, Zones } from './types'
+import type { Labels, Mask, Zones } from './types'
 
 // South Africa's extent, from the GCCA 2025 supply areas (pipeline/country_mask.py).
 export const SA_BOUNDS: [[number, number], [number, number]] = [[16.45, -34.83], [32.94, -22.13]]
@@ -6,6 +6,8 @@ export const SA_BOUNDS: [[number, number], [number, number]] = [[16.45, -34.83],
 export interface MapData {
   zones: Zones
   mask: Mask
+  zoneLabels: Labels
+  areaLabels: Labels
 }
 
 async function getJson<T>(url: string): Promise<T> {
@@ -18,4 +20,6 @@ async function getJson<T>(url: string): Promise<T> {
 export const mapData: Promise<MapData> = Promise.all([
   getJson<Zones>('/data/capacity_2025.geojson'),
   getJson<Mask>('/data/mask_2025.geojson'),
-]).then(([zones, mask]) => ({ zones, mask }))
+  getJson<Labels>('/data/capacity_labels_2025.geojson'),
+  getJson<Labels>('/data/supply_area_labels_2025.geojson'),
+]).then(([zones, mask, zoneLabels, areaLabels]) => ({ zones, mask, zoneLabels, areaLabels }))

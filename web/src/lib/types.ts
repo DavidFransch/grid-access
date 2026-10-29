@@ -1,9 +1,11 @@
-import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
+import type { Feature, FeatureCollection, MultiPolygon, Point, Polygon } from 'geojson'
 
 // Widest to narrowest, matching pipeline/binding_limit.py.
 export type Level = 'supply area' | 'local area' | 'substation area' | 'substation'
 
-export type Tech = 'wind' | 'solar'
+// The "I'm building:" choice. Every technology uses the base GCCA capacity; wind also gets
+// curtailment capacity in the Western and Eastern Cape (see lib/technologies.ts).
+export type Tech = 'solar' | 'wind' | 'battery' | 'hybrid' | 'gas' | 'other'
 
 export interface TransformerGroup {
   kv: string | null
@@ -11,6 +13,7 @@ export interface TransformerGroup {
   limited_by: Level[]
   inferred: Level[]
   not_published: Level[]
+  levels_mw: Record<Level, number | null>
 }
 
 // One feature's properties in data/processed/capacity_2025.geojson.
@@ -19,6 +22,7 @@ export interface ZoneProps {
   localarea: string
   supplyarea: string
   has_results: boolean
+  // Base GCCA limit; applies to any technology (named solar_mw in the data for historical reasons).
   solar_mw: number | null
   wind_mw: number | null
   base_reason: string
@@ -26,6 +30,7 @@ export interface ZoneProps {
   groups: TransformerGroup[]
   supply_area_mw: number | null
   local_area_mw: number | null
+  levels_mw: Partial<Record<Level, number | null>>
   curtailment_mw: number
   curtailment_shared_with: string
   curtailment_shared_note: string
@@ -41,3 +46,4 @@ export interface ZoneProps {
 export type ZoneFeature = Feature<Polygon | MultiPolygon, ZoneProps>
 export type Zones = FeatureCollection<Polygon | MultiPolygon, ZoneProps>
 export type Mask = FeatureCollection<Polygon | MultiPolygon>
+export type Labels = FeatureCollection<Point>

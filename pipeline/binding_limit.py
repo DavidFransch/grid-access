@@ -15,6 +15,7 @@ ZONES_PATH = ROOT / "data/processed/zones_2025.geojson"
 RESULTS_PATH = ROOT / "data/raw/gcca/gcca-2025/gcca-2025_results_2023-09.xlsx"
 CURTAILMENT_PATH = ROOT / "data/manual/curtailment_2025-10.csv"
 OUT_PATH = ROOT / "data/processed/capacity_2025.geojson"
+LABELS_PATH = ROOT / "data/processed/capacity_labels_2025.geojson"
 
 # Widest to narrowest: tied levels are always listed in this order.
 LIMITS = {
@@ -105,6 +106,17 @@ def base_reason(base_mw, levels, supply_area, local_area):
             f"{every} would need new capacity before a project could connect here.")
 
 
+def levels_mw(r):
+    """Each level's limit for one transformer group, widest first; None where not published."""
+    return {LIMITS[c]: (None if pd.isna(r[c]) else float(r[c])) for c in LIMITS}
+
+
+def largest_part_point(geom):
+    """A point inside the zone's largest part, so multi-part zones get one label."""
+    part = max(getattr(geom, "geoms", [geom]), key=lambda g: g.area)
+    return part.representative_point()
+
+
 def zone_summary(groups):
     """Per substation: 'up to' the highest group's binding limit, plus every group."""
     out = {}
@@ -115,6 +127,7 @@ def zone_summary(groups):
             "limited_by": best["limited_by"],
             "supply_area_mw": float(best["Supply_Area_Limit"]),
             "local_area_mw": float(best["Local_Area_Limit"]),
+            "levels_mw": levels_mw(best),
             "groups": [
                 {
                     "kv": r["Transformation (kV/kV)"] if pd.notna(r["Transformation (kV/kV)"]) else None,
@@ -122,6 +135,7 @@ def zone_summary(groups):
                     "limited_by": r["limited_by"],
                     "inferred": r["inferred"],
                     "not_published": r["not_published"],
+                    "levels_mw": levels_mw(r),
                 }
                 for _, r in g.iterrows()
             ],
@@ -174,6 +188,7 @@ def main():
             "groups": json.dumps(s["groups"] if s else [], allow_nan=False),
             "supply_area_mw": s["supply_area_mw"] if s else None,
             "local_area_mw": s["local_area_mw"] if s else None,
+            "levels_mw": json.dumps(s["levels_mw"] if s else {}, allow_nan=False),
             "curtailment_mw": curt_mw,
             "curtailment_shared_with": c["shared_with"].title() if c is not None else "",
             "curtailment_shared_note": c["shared_note"] if c is not None else "",
@@ -188,6 +203,12 @@ def main():
     out = gpd.GeoDataFrame(out, geometry="geometry", crs=zones.crs)
     out.to_file(OUT_PATH, driver="GeoJSON")
     assert "NaN" not in OUT_PATH.read_text(), "NaN in output GeoJSON (invalid JSON for browsers)"
+
+    # One label point per zone, on its largest part (no double labels on multi-part zones).
+    labels = out[["substation", "supplyarea", "has_results", "solar_mw", "wind_mw", "curtailment_mw"]].copy()
+    labels = gpd.GeoDataFrame(labels, geometry=out.geometry.map(largest_part_point), crs=out.crs)
+    labels.to_file(LABELS_PATH, driver="GeoJSON")
+    print(f"Wrote {LABELS_PATH.relative_to(ROOT)} ({len(labels)} label points)")
 
     has = out[out["has_results"]]
     print(f"Open for solar: {(has['solar_mw'] > 0).sum()} zones; open for wind: {(has['wind_mw'] > 0).sum()} zones")

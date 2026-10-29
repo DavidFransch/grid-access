@@ -18,7 +18,7 @@ A map of where new solar and wind projects in South Africa can realistically con
 
 Conventional Commits, so a suggested message can be pasted as is:
 
-```
+```text
 <type>(<scope>): <summary>
 
 <optional body: what changed and why, wrapped at 72 characters>
@@ -48,6 +48,7 @@ Example: `feat(web): add zone side panel with dark theme`
 | 9 | Prediction, only if history or NTCSA data supports it | |
 
 Roadmap rules:
+
 - The AI never states a number, rule or requirement that didn't come from a tool or a cited source. It explains; the data decides.
 - Every rule or regulation in the product has a source and a "last checked" date.
 - The pre-feasibility report is screening, not advice. By law a registered EAP does the environmental assessment; the report saves the first days of desk research.

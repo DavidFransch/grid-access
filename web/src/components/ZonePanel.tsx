@@ -13,7 +13,7 @@ interface Props {
 function Subtitle({ zone }: { zone: ZoneProps }) {
   return (
     <>
-      Eskom transmission substation · {zone.localarea} local area, {zone.supplyarea}
+      Eskom transmission substation
       {zone.place && <><br />Near {zone.place}{zone.place_approx ? ' (approx.)' : ''}</>}
     </>
   )
@@ -31,14 +31,14 @@ export function ZonePanel({ zone, tech, onClose }: Props) {
       <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
         <SheetContent
           side="right"
-          className="w-[360px] gap-0 sm:max-w-[360px]"
+          className="w-[400px] gap-0 bg-popover/90 backdrop-blur-md duration-200 sm:max-w-[400px]"
           onInteractOutside={e => e.preventDefault()}
           onOpenAutoFocus={e => e.preventDefault()}
         >
           {zone && (
             <>
-              <SheetHeader className="pb-2">
-                <SheetTitle className="text-lg">{zone.substation}</SheetTitle>
+              <SheetHeader className="pb-3 pr-10">
+                <SheetTitle className="text-2xl font-semibold tracking-tight">{zone.substation}</SheetTitle>
                 <SheetDescription><Subtitle zone={zone} /></SheetDescription>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto px-4 pb-6">
@@ -54,11 +54,11 @@ export function ZonePanel({ zone, tech, onClose }: Props) {
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85vh] bg-popover/95 backdrop-blur-md">
         {zone && (
           <>
             <DrawerHeader className="text-left">
-              <DrawerTitle>{zone.substation}</DrawerTitle>
+              <DrawerTitle className="text-2xl font-semibold tracking-tight">{zone.substation}</DrawerTitle>
               <DrawerDescription><Subtitle zone={zone} /></DrawerDescription>
             </DrawerHeader>
             <div className="overflow-y-auto px-4 pb-6">

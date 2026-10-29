@@ -13,6 +13,8 @@ npm run build    # type-check and build to dist/
 - Localhost only until NTCSA consents to publication.
 - Stage 3 switches `/data/` to the API.
 
-`src/lib/` holds the typed data and logic (`types.ts`, `summary.ts`, `colors.ts`, `fit-zoom.ts`); `src/components/` the map, control panel, zone panel and About dialog; `src/components/ui/` the shadcn components.
+`src/lib/` holds the typed data and logic (`types.ts`, `summary.ts`, `colors.ts`, `fit-zoom.ts`); `src/components/` the map, top bar, legend, zone panel and About dialog; `src/components/ui/` the shadcn components.
+
+Data files it loads: `capacity_2025.geojson`, `capacity_labels_2025.geojson` (one label point per zone) from `pipeline/binding_limit.py`; `mask_2025.geojson`, `supply_area_labels_2025.geojson` from `pipeline/country_mask.py`.
 
 `legacy/` is the previous single-file map (`python web/legacy/serve.py`, port 8000), kept until the new app is confirmed at parity.
