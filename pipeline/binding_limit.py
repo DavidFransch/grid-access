@@ -1,4 +1,4 @@
-"""Stage 2: binding limit per Western Cape zone, plus wind curtailment allocations.
+"""Stage 2: binding limit per zone, nationally, plus wind curtailment allocations.
 
 Reads the zones from load_zones.py, the GCCA 2025 results spreadsheet and the
 hand-entered October 2025 curtailment table; writes one GeoJSON for the map.
@@ -11,10 +11,10 @@ import geopandas as gpd
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-ZONES_PATH = ROOT / "data/processed/western_cape_zones.geojson"
+ZONES_PATH = ROOT / "data/processed/zones_2025.geojson"
 RESULTS_PATH = ROOT / "data/raw/gcca/gcca-2025/gcca-2025_results_2023-09.xlsx"
 CURTAILMENT_PATH = ROOT / "data/manual/curtailment_2025-10.csv"
-OUT_PATH = ROOT / "data/processed/western_cape_capacity.geojson"
+OUT_PATH = ROOT / "data/processed/capacity_2025.geojson"
 
 # Widest to narrowest: tied levels are always listed in this order.
 LIMITS = {
@@ -25,29 +25,64 @@ LIMITS = {
 }
 NUMBER_WORDS = {1: "one", 2: "two", 3: "three", 4: "four"}
 
-SOURCES = {
-    "base": "Eskom GCCA 2025 results spreadsheet (published Sep 2023)",
-    "curtailment": (
-        "NTCSA, Curtailment-Adjusted Connection Capacity for Wind Generators in the "
-        "Eastern Cape and Western Cape, 31 Oct 2025, Table 4 and notes (pp. 7-8)"
-    ),
-}
+# Citations only: NTCSA's terms allow links to their home page, not deep links (ask Ronald).
+SOURCE_ZONES = "Eskom, GCCA 2025 GIS zones (MTS_ZONES_GCCA2025), Oct 2023"
+SOURCE_BASE = "Eskom, GCCA 2025 Results (spreadsheet), Sep 2023, {name} row(s)"
+SOURCE_ROUND5 = "Eskom, Generation Connection Capacity Assessment (GCCA) 2025, Oct 2023, Table 24: Western Cape IPPs (p. 53)"
 CURTAILMENT_VALID = "1 Apr 2025 to 31 Mar 2028"
-NOT_ALLOCATED = "Not in the October 2025 curtailment allocation."
+CURTAILMENT_SCOPE = {"Western Cape", "Eastern Cape"}
+NOT_ALLOCATED = "Not in the October 2025 curtailment allocation, so no extra wind capacity here."
+
+
+def fill_blank_limits(results):
+    """Fill the few blank area limits; return the filled frame and a log of what was inferred.
+
+    Local and supply area limits have exactly one value per area, so blanks take that value.
+    A blank substation area limit is taken only from a sibling row at the same voltage;
+    otherwise it stays blank ("not published").
+    """
+    df = results.copy()
+    df["inferred"] = [[] for _ in range(len(df))]
+    log = []
+    for col, area_cols in [("Supply_Area_Limit", ["Supply_Area"]),
+                           ("Local_Area_Limit", ["Supply_Area", "Local_Area"])]:
+        per_area = df.groupby(area_cols)[col].nunique()
+        assert (per_area <= 1).all(), f"{col} has more than one value in an area"
+        values = df.groupby(area_cols)[col].transform("first")
+        for i in df.index[df[col].isna() & values.notna()]:
+            df.at[i, col] = values[i]
+            df.at[i, "inferred"].append(LIMITS[col])
+            log.append(f"{df.at[i, 'Substation Name']} {df.at[i, 'Transformation (kV/kV)']}: "
+                       f"{LIMITS[col]} = {values[i]:g} (from its area)")
+    for i in df.index[df["Substation_Area_Limit"].isna()]:
+        r = df.loc[i]
+        sib = df[(df["Substation Name"] == r["Substation Name"]) & (df.index != i)
+                 & (df["Transformation (kV/kV)"] == r["Transformation (kV/kV)"])
+                 & df["Substation_Area_Limit"].notna()]
+        name = f"{r['Substation Name']} {r['Transformation (kV/kV)']}"
+        if len(sib):
+            value = sib["Substation_Area_Limit"].iloc[0]
+            df.at[i, "Substation_Area_Limit"] = value
+            df.at[i, "inferred"].append("substation area")
+            log.append(f"{name}: substation area = {value:g} (from same-voltage row)")
+        else:
+            log.append(f"{name}: substation area not published (no same-voltage row)")
+    assert df["Substation_Limit"].notna().all()
+    return df, log
 
 
 def transformer_groups(results):
     """One row per transformer group, with its binding limit and the level(s) that set it."""
-    rows = results[results["Supply_Area"] == "Western Cape"].copy()
+    rows, log = fill_blank_limits(results)
     limits = rows[list(LIMITS)]
-    assert not limits.isna().any().any(), "Western Cape rows have missing limits; decide how to treat them"
-    rows["binding_mw"] = limits.min(axis=1)
+    rows["binding_mw"] = limits.min(axis=1)  # skips a "not published" blank
     # Report every level tied at the minimum, not just the first one.
     rows["limited_by"] = limits.apply(
         lambda r: [LIMITS[c] for c in LIMITS if r[c] == r.min()], axis=1
     )
+    rows["not_published"] = limits.apply(lambda r: [LIMITS[c] for c in LIMITS if pd.isna(r[c])], axis=1)
     rows["name"] = rows["Substation Name"].str.upper().str.strip()
-    return rows
+    return rows, log
 
 
 def base_reason(base_mw, levels, supply_area, local_area):
@@ -78,11 +113,15 @@ def zone_summary(groups):
         out[name] = {
             "base_mw": float(best["binding_mw"]),
             "limited_by": best["limited_by"],
+            "supply_area_mw": float(best["Supply_Area_Limit"]),
+            "local_area_mw": float(best["Local_Area_Limit"]),
             "groups": [
                 {
-                    "kv": r["Transformation (kV/kV)"],
+                    "kv": r["Transformation (kV/kV)"] if pd.notna(r["Transformation (kV/kV)"]) else None,
                     "binding_mw": float(r["binding_mw"]),
                     "limited_by": r["limited_by"],
+                    "inferred": r["inferred"],
+                    "not_published": r["not_published"],
                 }
                 for _, r in g.iterrows()
             ],
@@ -95,43 +134,64 @@ def main():
     results = pd.read_excel(RESULTS_PATH)
     curtailment = pd.read_csv(CURTAILMENT_PATH, keep_default_na=False).set_index("substation")
 
-    summary = zone_summary(transformer_groups(results))
+    groups, fill_log = transformer_groups(results)
+    summary = zone_summary(groups)
     zones["key"] = zones["substation"].str.upper()
 
-    missing = sorted(set(zones["key"]) - set(summary))
-    unused = sorted(set(curtailment.index) - set(zones["key"]))
-    print(f"{len(zones)} zones, {len(summary)} substations in results")
-    print("Zones without results:", missing or "none")
-    print("Curtailment rows without a zone:", unused or "none")
+    print(f"{len(zones)} zones, {len(summary)} substations in results, "
+          f"{len(set(zones['key']) & set(summary))} matched")
+    print("Results without a zone:", sorted(set(summary) - set(zones["key"])) or "none")
+    print("Zones without results:", sorted(set(zones["key"]) - set(summary)) or "none")
+    print("Curtailment rows without a zone:", sorted(set(curtailment.index) - set(zones["key"])) or "none")
+    print("Blank limits:")
+    for line in fill_log:
+        print("  " + line)
 
     records = []
-    for key in zones["key"]:
+    for _, row in zones.iterrows():
+        key = row["key"]
         s = summary.get(key)
         c = curtailment.loc[key] if key in curtailment.index else None
         curt_mw = float(c["curtailment_mw"]) if c is not None else 0.0
         base = s["base_mw"] if s else None
-        row = zones.loc[zones["key"] == key].iloc[0]
+        in_scope = row["supplyarea"] in CURTAILMENT_SCOPE
+
+        sources = [SOURCE_ZONES]
+        if s:
+            sources.append(SOURCE_BASE.format(name=row["substation"]))
+        if c is not None:
+            sources.append(c["source"])
+        if c is not None and c["status_note"]:
+            sources.append(SOURCE_ROUND5)
+
         records.append({
-            "base_reason": base_reason(base, s["limited_by"], row["supplyarea"], row["localarea"]) if s else "",
-            "status_note": c["status_note"] if c is not None else "",
+            "has_results": s is not None,
             "solar_mw": base,
             # Curtailment capacity is additional wind hosting capacity on top of the base result.
             "wind_mw": None if base is None else base + curt_mw,
+            "base_reason": base_reason(base, s["limited_by"], row["supplyarea"], row["localarea"]) if s else "",
             "limited_by": json.dumps(s["limited_by"] if s else []),
-            "groups": json.dumps(s["groups"] if s else []),
+            "groups": json.dumps(s["groups"] if s else [], allow_nan=False),
+            "supply_area_mw": s["supply_area_mw"] if s else None,
+            "local_area_mw": s["local_area_mw"] if s else None,
             "curtailment_mw": curt_mw,
-            "curtailment_shared_with": c["shared_with"].title() if c is not None and c["shared_with"] else "",
-            "curtailment_reason": c["reason"] if c is not None else NOT_ALLOCATED,
+            "curtailment_shared_with": c["shared_with"].title() if c is not None else "",
+            "curtailment_shared_note": c["shared_note"] if c is not None else "",
+            "curtailment_reason": c["reason"] if c is not None else (NOT_ALLOCATED if in_scope else ""),
             "curtailment_valid": CURTAILMENT_VALID,
-            "source_base": SOURCES["base"],
-            "source_curtailment": SOURCES["curtailment"],
+            "status_chip": c["status_chip"] if c is not None else "",
+            "status_note": c["status_note"] if c is not None else "",
+            "sources": json.dumps(sources),
         })
 
     out = pd.concat([zones.drop(columns="key").reset_index(drop=True), pd.DataFrame(records)], axis=1)
     out = gpd.GeoDataFrame(out, geometry="geometry", crs=zones.crs)
     out.to_file(OUT_PATH, driver="GeoJSON")
+    assert "NaN" not in OUT_PATH.read_text(), "NaN in output GeoJSON (invalid JSON for browsers)"
 
-    print(out[["substation", "solar_mw", "wind_mw", "curtailment_mw", "limited_by"]].to_string(index=False))
+    has = out[out["has_results"]]
+    print(f"Open for solar: {(has['solar_mw'] > 0).sum()} zones; open for wind: {(has['wind_mw'] > 0).sum()} zones")
+    print(has.groupby("supplyarea")[["supply_area_mw"]].first().to_string())
     print(f"Wrote {OUT_PATH.relative_to(ROOT)}")
 
 

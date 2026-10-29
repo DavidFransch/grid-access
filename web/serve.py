@@ -41,6 +41,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def end_headers(self):
+        # Dev server: always serve the latest page and data, never a cached copy.
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def translate_path(self, path):
         if path.startswith("/data/"):
             name = Path(path.split("?")[0]).name  # no subfolders, no ../

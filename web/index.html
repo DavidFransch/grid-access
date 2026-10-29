@@ -8,31 +8,76 @@
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
   <script src="/config.js"></script>
   <style>
-    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; color: #222; }
+    :root {
+      --text: #1d1d1f; --muted: #6b6b70; --line: #e6e6ea; --card: #ffffff;
+      --open: #1f8a4c; --open-bg: #e7f5ec; --full: #8a8a8f; --full-bg: #f1f1f3;
+      --warn-bg: #fff4d6; --warn: #8a6200; --bind: #d14b3d;
+    }
+    html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; color: var(--text); }
     #map { position: absolute; inset: 0; }
+
     .panel {
-      position: absolute; top: 12px; left: 12px; width: 300px; max-width: calc(100% - 56px);
-      background: rgba(255, 255, 255, 0.96); padding: 12px 14px; border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); font-size: 13px; line-height: 1.45;
+      position: absolute; top: 16px; left: 16px; width: 300px; max-width: calc(100% - 64px);
+      background: var(--card); padding: 16px 18px; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12); font-size: 13px; line-height: 1.5;
     }
-    .panel h1 { font-size: 16px; margin: 0 0 6px; }
-    .panel p { margin: 6px 0; }
-    .toggle { display: flex; gap: 0; margin: 8px 0; }
+    .panel h1 { font-size: 17px; margin: 0 0 10px; }
+    .panel p { margin: 8px 0; }
+    .toggle { display: flex; background: var(--full-bg); border-radius: 8px; padding: 3px; margin-bottom: 10px; }
     .toggle button {
-      flex: 1; padding: 6px; border: 1px solid #888; background: #fff; cursor: pointer; font: inherit;
+      flex: 1; padding: 6px; border: 0; background: transparent; border-radius: 6px;
+      cursor: pointer; font: inherit; color: var(--muted);
     }
-    .toggle button:first-child { border-radius: 6px 0 0 6px; }
-    .toggle button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
-    .toggle button.on { background: #222; color: #fff; border-color: #222; }
-    .legend div { display: flex; align-items: center; }
-    .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; border: 1px solid #0002; }
-    .muted { color: #666; font-size: 11px; }
-    .mapboxgl-popup-content { font-size: 13px; line-height: 1.45; max-width: 320px; }
-    .mapboxgl-popup-content h2 { font-size: 15px; margin: 0 0 2px; }
-    .tag { background: #fff4d6; border-left: 3px solid #e0a800; padding: 4px 8px; margin: 6px 0; font-size: 12px; }
-    .big { font-size: 15px; font-weight: 600; margin: 6px 0 2px; }
-    table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
-    td, th { text-align: left; padding: 2px 4px; border-bottom: 1px solid #eee; }
+    .toggle button.on { background: #fff; color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .regions { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+    .regions button {
+      font: inherit; font-size: 11.5px; padding: 3px 8px; border-radius: 999px;
+      border: 1px solid var(--line); background: #fff; color: var(--muted); cursor: pointer;
+    }
+    .regions button:hover { color: var(--text); border-color: #ccc; }
+    .legend div { display: flex; align-items: center; margin: 2px 0; }
+    .legend span { width: 12px; height: 12px; margin-right: 8px; border-radius: 3px; border: 1px solid #0001; }
+    .muted { color: var(--muted); font-size: 11.5px; }
+
+    .mapboxgl-popup-content { padding: 0; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.18); }
+    .mapboxgl-popup-close-button { font-size: 18px; padding: 6px 10px; color: var(--muted); }
+    .card {
+      padding: 16px 18px 14px; font-size: 13px; line-height: 1.5;
+      width: min(300px, calc(100vw - 72px));
+      /* Fit the window and scroll inside, so long details are never cut off. */
+      max-height: min(560px, calc(100vh - 120px)); overflow-y: auto; overscroll-behavior: contain;
+    }
+    .card h2 { font-size: 18px; margin: 0; }
+    .card .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px; margin: 12px 0 8px;
+      padding: 6px 10px; border-radius: 8px; font-size: 15px; font-weight: 600;
+    }
+    .badge.open { background: var(--open-bg); color: var(--open); }
+    .badge.full { background: var(--full-bg); color: var(--full); }
+    .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .chip { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+    .chip.warn { background: var(--warn-bg); border-color: transparent; color: var(--warn); }
+    .card p { margin: 8px 0; }
+    .note { font-size: 12px; color: var(--muted); }
+    .section-title { font-size: 12px; font-weight: 600; margin: 12px 0 6px; }
+    .bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+    .bar div {
+      font-size: 10.5px; text-align: center; padding: 5px 2px; border-radius: 4px;
+      background: var(--full-bg); color: var(--muted);
+    }
+    .bar div.bind { background: var(--bind); color: #fff; font-weight: 600; }
+    details { border-top: 1px solid var(--line); padding: 8px 0 0; margin-top: 10px; }
+    details + details { margin-top: 8px; }
+    summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+    details ol { margin: 6px 0 0; padding-left: 20px; font-size: 11.5px; color: var(--muted); }
+    details ol li { margin-bottom: 4px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 6px; }
+    td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 500; }
+    .foot { margin-top: 12px; font-size: 11px; color: var(--muted); }
+    a { color: inherit; }
   </style>
 </head>
 <body>
@@ -44,10 +89,15 @@
       <button data-tech="solar">Solar</button>
     </div>
     <p id="summary"></p>
+    <div class="regions">
+      <button data-region="all">South Africa</button>
+      <button data-region="Western Cape">Western Cape</button>
+      <button data-region="Eastern Cape">Eastern Cape</button>
+    </div>
     <div class="legend" id="legend"></div>
-    <p class="muted">Shows Eskom's planned 2025 grid, which assumes planned projects are complete.</p>
-    <p class="muted">Click a zone for the reason and sources. Western Cape supply area, Eskom GCCA 2025 zones.
-      Indicative only; a budget quote from NTCSA is the binding answer.</p>
+    <p class="muted">Shows Eskom's planned 2025 grid, which assumes planned projects are complete.
+      Click a zone for details. Indicative only; a budget quote from NTCSA is the binding answer.</p>
+    <p class="muted">Data: Eskom / NTCSA GCCA, available from <a href="https://www.ntcsa.co.za" target="_blank" rel="noopener">ntcsa.co.za</a> under GCCA.</p>
   </div>
   <script>
     const STEPS = [
@@ -56,15 +106,22 @@
       [200, "#74c476", "200 to 499 MW"],
       [500, "#238b45", "500 MW or more"],
     ];
+    // Widest to narrowest, matching the pipeline's order.
+    const LEVELS = [["supply area", "Supply area"], ["local area", "Local area"],
+                    ["substation area", "Substation area"], ["substation", "Substation"]];
+    // South Africa's extent, from the GCCA 2025 supply areas (pipeline/country_mask.py).
+    const SA_BOUNDS = [[16.45, -34.83], [32.94, -22.13]];
     let tech = "wind";
     let zones = null;
 
-    const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const mw = v => v === null || v === undefined ? "no data" : `${Math.round(v).toLocaleString("en-ZA")} MW`;
+    // Mapbox hands nested properties back as JSON strings; the raw GeoJSON has arrays.
+    const parse = v => typeof v === "string" ? JSON.parse(v) : (v ?? []);
 
     document.getElementById("legend").innerHTML = STEPS
       .map(([, c, label]) => `<div><span style="background:${c}"></span>${label}</div>`).join("") +
-      `<div><span style="background:#fff"></span>No results</div>`;
+      `<div><span style="background:#fff"></span>No results published</div>`;
 
     function colourBy(field) {
       return ["case", ["==", ["get", field], null], "#ffffff",
@@ -72,47 +129,115 @@
     }
 
     function updateSummary() {
-      const fs = zones.features.map(f => f.properties);
-      const el = document.getElementById("summary");
+      const fs = zones.features.map(f => f.properties).filter(p => p.has_results);
+      // Zones in one supply area share its limit, so total the areas, never the zones.
+      const areas = {};
+      fs.forEach(p => { areas[p.supplyarea] = p.supply_area_mw; });
+      const areaTotal = Object.values(areas).reduce((a, v) => a + v, 0);
+      const openAreas = Object.values(areas).filter(v => v > 0).length;
+      // Shared curtailment allocations (Galenia/Nuweveld, Neptune/Pembroke) count once.
+      const curt = {};
+      fs.filter(p => p.curtailment_mw > 0).forEach(p => {
+        curt[[p.substation.toUpperCase(), (p.curtailment_shared_with || "").toUpperCase()].sort().join("|")] = p.curtailment_mw;
+      });
+      const curtTotal = Object.values(curt).reduce((a, v) => a + v, 0);
+      const field = tech === "wind" ? "wind_mw" : "solar_mw";
+      const open = fs.filter(p => p[field] > 0).length;
+      let html = `<strong>Open for ${tech} in ${open} of ${fs.length} zones.</strong> ` +
+        `The ${openAreas} supply areas with room have ${mw(areaTotal)} between them.`;
       if (tech === "wind") {
-        const open = fs.filter(p => p.wind_mw > 0);
-        const total = open.reduce((a, p) => a + p.curtailment_mw, 0);
-        el.innerHTML = `<strong>${mw(total)}</strong> of new wind in ${open.length} of ${fs.length} zones, ` +
-          `through curtailment (about 4%), valid ${esc(fs[0].curtailment_valid)}.`;
-      } else {
-        const open = fs.filter(p => p.solar_mw > 0);
-        el.innerHTML = open.length
-          ? `<strong>${open.length}</strong> of ${fs.length} zones have solar capacity.`
-          : `<strong>No solar capacity</strong> in any of the ${fs.length} zones: the Western Cape supply area limit is 0 MW.`;
+        html += ` Plus ${mw(curtTotal)} of wind through curtailment in the Western and Eastern Cape, until 31 Mar 2028.`;
       }
+      document.getElementById("summary").innerHTML =
+        html + ` <span class="muted">Zones in the same area share capacity, so zone figures don't add up.</span>`;
+    }
+
+    function boundsOf(features) {
+      const bounds = new mapboxgl.LngLatBounds();
+      features.forEach(f => {
+        const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+        polys.forEach(p => p[0].forEach(c => bounds.extend(c)));
+      });
+      return bounds;
+    }
+
+    function zoomTo(region) {
+      const fs = zones.features.filter(f => region === "all" || f.properties.supplyarea === region);
+      map.fitBounds(boundsOf(fs), { padding: 30, duration: region === "all" ? 0 : 800 });
+    }
+
+    function levelBar(limitedBy, localArea) {
+      return `<div class="bar">` + LEVELS.map(([key, label]) => {
+        const title = key === "local area" ? `${localArea} local area` : label;
+        return `<div class="${limitedBy.includes(key) ? "bind" : ""}" title="${esc(title)}">${label}</div>`;
+      }).join("") + `</div>`;
     }
 
     function popupHtml(p) {
-      // Mapbox hands nested properties back as JSON strings; the raw GeoJSON has arrays.
-      const parse = v => typeof v === "string" ? JSON.parse(v) : v;
       const groups = parse(p.groups);
-      const value = tech === "wind" ? p.wind_mw : p.solar_mw;
-      let html = `<h2>${esc(p.substation)}</h2><div class="muted">${esc(p.localarea)} local area</div>`;
-      if (p.status_note) html += `<p class="tag">${esc(p.status_note)}</p>`;
-      html += `<div class="big">${tech === "wind" ? "Wind" : "Solar"}: up to ${mw(value)}</div>`;
+      const limitedBy = parse(p.limited_by);
+      const sources = parse(p.sources);
+      const isWind = tech === "wind";
+      const value = isWind ? p.wind_mw : p.solar_mw;
+      const techName = isWind ? "wind" : "solar";
+      const shared = isWind && p.curtailment_mw > 0 && p.curtailment_shared_with;
 
-      if (tech === "wind") {
-        if (p.curtailment_mw > 0) {
-          html += `<p>From the curtailment allocation, valid ${esc(p.curtailment_valid)}.`;
-          if (p.curtailment_shared_with) html += ` <strong>Shared with ${esc(p.curtailment_shared_with)}.</strong>`;
-          html += `</p>`;
-        }
-        html += `<p><strong>Why:</strong> ${esc(p.curtailment_reason)}</p>`;
+      let html = `<div class="card"><h2>${esc(p.substation)}</h2>`;
+      html += `<div class="sub">Eskom transmission substation</div>`;
+      if (p.place) html += `<div class="sub">Near ${esc(p.place)}${p.place_approx ? " (approx.)" : ""}</div>`;
+
+      if (!p.has_results) {
+        html += `<div class="badge full"><span class="dot"></span>No results published</div>`;
+        html += `<p>GCCA 2025 has a zone for this substation but publishes no capacity result for it.</p>`;
+        html += `<details><summary>Sources (${sources.length})</summary><ol>` + sources.map(s => `<li>${esc(s)}</li>`).join("") +
+          `</ol></details><div class="foot">Indicative only. A budget quote from NTCSA is the binding answer.</div></div>`;
+        return html;
       }
-      html += `<p><strong>Base GCCA 2025${tech === "wind" ? " (before curtailment)" : ""}:</strong> ${esc(p.base_reason)}</p>`;
+      html += value > 0
+        ? `<div class="badge open"><span class="dot"></span>Open for ${techName} · ${mw(value)}${shared ? "*" : ""}</div>`
+        : `<div class="badge full"><span class="dot"></span>Full for ${techName}</div>`;
+
+      const chips = [];
+      if (isWind && p.curtailment_mw > 0) {
+        chips.push(`<span class="chip">Wind only</span>`, `<span class="chip">~4% curtailment</span>`,
+                   `<span class="chip">Until 31 Mar 2028</span>`);
+      }
+      if (p.status_chip) chips.push(`<span class="chip warn">${esc(p.status_chip)}</span>`);
+      if (chips.length) html += `<div class="chips">${chips.join("")}</div>`;
+
+      if (shared) html += `<p class="note">*${esc(p.curtailment_shared_note)}</p>`;
+      if (isWind && p.curtailment_reason) html += `<p>${esc(p.curtailment_reason)}</p>`;
+      if (p.solar_mw > 0) {
+        html += `<p class="note">Shares capacity with other zones: the ${esc(p.supplyarea)} supply area has ${mw(p.supply_area_mw)} in total ` +
+          `and the ${esc(p.localarea)} local area ${mw(p.local_area_mw)}.</p>`;
+      }
+      if (p.status_note) html += `<p class="note">${esc(p.status_note)}</p>`;
+
+      const baseLabel = isWind ? "Without curtailment" : "Grid limits";
+      html += `<div class="section-title">${baseLabel}: ${p.solar_mw > 0 ? "up to " + mw(p.solar_mw) : "full"}</div>`;
+      html += levelBar(limitedBy, p.localarea);
+      html += `<p class="note" style="margin-top:6px">Red marks the level${limitedBy.length > 1 ? "s" : ""} setting the limit. ${esc(p.base_reason)}</p>`;
 
       if (groups.length) {
-        html += `<table><tr><th>Transformers</th><th>Limit</th><th>Set by</th></tr>` +
-          groups.map(g => `<tr><td>${esc(g.kv)} kV</td><td>${mw(g.binding_mw)}</td><td>${esc(g.limited_by.join(", "))}</td></tr>`).join("") +
-          `</table>`;
+        html += `<details><summary>Transformer details (${groups.length})</summary><table>` +
+          `<tr><th>Transformation</th><th>Limit</th><th>Set by</th></tr>` +
+          groups.map(g => {
+            let set = esc(g.limited_by.join(", "));
+            if (g.inferred && g.inferred.length) set += `<br><span class="note">inferred: ${esc(g.inferred.join(", "))}</span>`;
+            if (g.not_published && g.not_published.length) set += `<br><span class="note">not published: ${esc(g.not_published.join(", "))}</span>`;
+            return `<tr><td>${g.kv ? esc(g.kv) + " kV" : "not published"}</td><td>${mw(g.binding_mw)}</td><td>${set}</td></tr>`;
+          }).join("") +
+          `</table>` +
+          (groups.some(g => g.inferred && g.inferred.length)
+            ? `<p class="note">Inferred: blank in the spreadsheet, filled from the same area or a same-voltage row.</p>` : "") +
+          `</details>`;
       }
-      html += `<p class="muted">Sources: ${esc(p.source_base)}` +
-        (tech === "wind" ? `; ${esc(p.source_curtailment)}` : "") + `.</p>`;
+      const shown = isWind ? sources : sources.filter(s => !s.startsWith("NTCSA, Curtailment"));
+      html += `<details><summary>Sources (${shown.length})</summary><ol>` +
+        shown.map(s => `<li>${esc(s)}</li>`).join("") +
+        `</ol><p class="note">Available from <a href="https://www.ntcsa.co.za" target="_blank" rel="noopener">ntcsa.co.za</a> under GCCA.</p></details>`;
+
+      html += `<div class="foot">Indicative only. A budget quote from NTCSA is the binding answer.</div></div>`;
       return html;
     }
 
@@ -125,13 +250,42 @@
     const map = new mapboxgl.Map({
       container: "map",
       style: "mapbox://styles/mapbox/light-v11",
-      center: [20.5, -33.2],
-      zoom: 6,
+      // Flat map: Mapbox's default globe projection doesn't enforce maxBounds.
+      projection: "mercator",
+      bounds: SA_BOUNDS,
+      fitBoundsOptions: { padding: 30 },
     });
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+    // The country never shrinks below its framed size, recomputed when the window changes.
+    function lockZoom() {
+      const cam = map.cameraForBounds(SA_BOUNDS, { padding: 30 });
+      if (cam) map.setMinZoom(cam.zoom - 0.25);
+    }
+    lockZoom();
+    map.on("resize", lockZoom);
+
+    // Keep the centre over South Africa. (maxBounds would clip the whole-country view on
+    // wide or tall screens, because it keeps the entire viewport inside the box.)
+    map.on("move", () => {
+      const c = map.getCenter();
+      const lng = Math.min(Math.max(c.lng, SA_BOUNDS[0][0]), SA_BOUNDS[1][0]);
+      const lat = Math.min(Math.max(c.lat, SA_BOUNDS[0][1]), SA_BOUNDS[1][1]);
+      if (lng !== c.lng || lat !== c.lat) map.setCenter([lng, lat]);
+    });
+
+    // Start downloading the data now, in parallel with the basemap tiles.
+    const dataReady = Promise.all([
+      fetch("/data/capacity_2025.geojson").then(r => r.json()),
+      fetch("/data/mask_2025.geojson").then(r => r.json()),
+    ]);
+
     map.on("load", async () => {
-      zones = await (await fetch("/data/western_cape_capacity.geojson")).json();
+      const [zonesData, maskData] = await dataReady;
+      zones = zonesData;
+      // Dim everything outside South Africa (outline from the GCCA 2025 supply areas).
+      map.addSource("mask", { type: "geojson", data: maskData });
+      map.addLayer({ id: "mask", type: "fill", source: "mask", paint: { "fill-color": "#9a9aa0", "fill-opacity": 0.35 } });
       map.addSource("zones", { type: "geojson", data: zones, generateId: true });
 
       map.addLayer({
@@ -147,16 +301,11 @@
       });
       map.addLayer({
         id: "zones-label", type: "symbol", source: "zones",
+        minzoom: 5.5,
         layout: { "text-field": ["get", "substation"], "text-size": 12 },
         paint: { "text-color": "#222", "text-halo-color": "#fff", "text-halo-width": 1.2 },
       });
 
-      const bounds = new mapboxgl.LngLatBounds();
-      zones.features.forEach(f => {
-        const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
-        polys.forEach(p => p[0].forEach(c => bounds.extend(c)));
-      });
-      map.fitBounds(bounds, { padding: 40 });
       updateSummary();
 
       let hovered = null;
@@ -172,10 +321,23 @@
         map.getCanvas().style.cursor = "";
       });
       map.on("click", "zones-fill", e => {
-        new mapboxgl.Popup({ maxWidth: "340px" })
+        const popup = new mapboxgl.Popup({ maxWidth: "none" })
           .setLngLat(e.lngLat).setHTML(popupHtml(e.features[0].properties)).addTo(map);
+        const card = popup.getElement().querySelector(".card");
+        // Scrolling over the card scrolls the card, not the map.
+        card.addEventListener("wheel", ev => ev.stopPropagation(), { passive: true });
+        // Nudge the map so the whole card is on screen.
+        const box = popup.getElement().getBoundingClientRect();
+        const view = map.getContainer().getBoundingClientRect();
+        const dx = Math.min(0, view.right - 12 - box.right) || Math.max(0, view.left + 12 - box.left);
+        const dy = Math.min(0, view.bottom - 12 - box.bottom) || Math.max(0, view.top + 12 - box.top);
+        if (dx || dy) map.panBy([-dx, -dy], { duration: 300 });
       });
     });
+
+    document.querySelectorAll(".regions button").forEach(btn => btn.addEventListener("click", () => {
+      if (zones) zoomTo(btn.dataset.region);
+    }));
 
     document.querySelectorAll(".toggle button").forEach(btn => btn.addEventListener("click", () => {
       tech = btn.dataset.tech;
