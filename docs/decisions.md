@@ -24,3 +24,6 @@ One line per real choice. This becomes the README story and the interview script
 | 2026-10-29 | Eastern Cape curtailment from Table 7: 400 MW shared by Neptune and Pembroke; Dedisa, Delphi, Grassridge, Poseidon 0 | Same treatment as the Western Cape |
 | 2026-10-29 | National summary totals supply area limits (19,940 MW) plus curtailment (1,580 MW, shared allocations once), never zone figures | Zones in one area share its capacity; adding zones would overstate it |
 | 2026-10-29 | Lock the map to South Africa: flat mercator projection, centre kept inside the country, minZoom from its outline, mask from GCCA supply areas (not maxBounds, which clips the whole-country view on wide or tall screens) | No data outside South Africa; widen when another country is added |
+| 2026-10-29 | Moved web to React + shadcn/ui (Radix) before the redesign | Side panel, theming and future AI and report UI need real components |
+| 2026-10-29 | Zone details in a side panel (Sheet on desktop, Drawer on phones) instead of a map popup; dark theme by default, basemap follows the theme | Long details scroll properly and the map stays usable; a dark panel next to a bright map looks unfinished |
+| 2026-10-29 | Conventional Commits for all commit messages (types and scopes in CLAUDE.md) | Readable history; suggested messages can be pasted without rewriting |

@@ -11,8 +11,27 @@ A map of where new solar and wind projects in South Africa can realistically con
 - Keep explanations short: one or two lines on why, so David can explain every choice to NTCSA or in an interview.
 - Ship visible results early. Prefer a working map over a perfect pipeline.
 - Plain language, warm but direct. No em dashes, no hype. Never invent facts about the data. If something is unknown, say so and say how to check it.
-- David commits and pushes himself. Suggest a commit message at the end of a session; only commit if he asks.
+- David commits and pushes himself. Suggest a commit message at the end of a session, following "Commit messages" below; only commit if he asks.
 - Add one line to `docs/decisions.md` for every real choice (date, decision, why).
+
+## Commit messages
+
+Conventional Commits, so a suggested message can be pasted as is:
+
+```
+<type>(<scope>): <summary>
+
+<optional body: what changed and why, wrapped at 72 characters>
+```
+
+- **Types:** `feat` (new feature or user-visible change), `fix` (bug fix), `refactor` (restructure, no behaviour change), `perf`, `test`, `docs`, `style` (formatting only), `build` (dependencies, build tooling), `ci`, `chore` (housekeeping), `data` (pipeline outputs or manual data tables change, e.g. new curtailment figures).
+- **Scopes (optional):** `pipeline`, `web`, `api`, `data`, `docs`. Leave it out when a commit spans several.
+- **Summary:** imperative mood ("add", not "added"), lowercase after the colon, no full stop, about 50 characters, at most 72.
+- **Body:** use it when the why isn't obvious, for example a data rule or a source. Mention a decisions.md entry if the commit carries one.
+- **Breaking change:** `feat(api)!: ...` plus a `BREAKING CHANGE:` line in the body.
+- **One idea per commit.** If a session mixes kinds of work (say a pipeline fix and a UI feature), suggest separate commits with the files for each.
+
+Example: `feat(web): add zone side panel with dark theme`
 
 ## Stages
 
@@ -42,7 +61,7 @@ After stage 2, David emails Ronald Marais (NTCSA, GCCA lead) with a screenshot.
 ```bash
 pipeline/   scripts: data/raw -> data/processed, one step per script
 api/        FastAPI (stage 3)
-web/        Mapbox map; token in .env as MAPBOX_TOKEN, never in code
+web/        Vite + React + TypeScript + Tailwind + shadcn/ui (Radix) map, react-map-gl on Mapbox; token in the repo-root .env as MAPBOX_TOKEN, never in code. web/legacy/ is the old single-file map, kept until parity is confirmed
 notebooks/  exploration
 docs/       decisions.md
 data/raw/   original Eskom/NTCSA files, by dataset and GCCA edition
@@ -80,5 +99,5 @@ pip install -r requirements.txt
 python pipeline/load_zones.py
 python pipeline/binding_limit.py
 python pipeline/country_mask.py
-python web/serve.py   # map at http://localhost:8000, localhost only
+cd web && npm install && npm run dev   # map at http://127.0.0.1:5173, localhost only
 ```

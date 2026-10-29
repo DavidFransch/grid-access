@@ -32,7 +32,7 @@ All figures come from NTCSA and Eskom publications, provided "as is". They are n
 ```
 pipeline/   scripts: data/raw -> data/processed
 api/        FastAPI service (stage 3)
-web/        Mapbox map
+web/        Mapbox map (Vite + React + shadcn/ui)
 notebooks/  exploration
 docs/       decision log
 ```
@@ -44,4 +44,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # then add your Mapbox token
+
+python pipeline/load_zones.py
+python pipeline/binding_limit.py
+python pipeline/country_mask.py
+
+cd web && npm install && npm run dev   # http://127.0.0.1:5173
 ```

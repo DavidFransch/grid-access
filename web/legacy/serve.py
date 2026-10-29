@@ -10,8 +10,8 @@ import json
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-WEB = ROOT / "web"
+ROOT = Path(__file__).resolve().parents[2]
+WEB = ROOT / "web/legacy"
 DATA = ROOT / "data/processed"
 PORT = int(os.environ.get("PORT", 8000))
 
