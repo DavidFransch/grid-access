@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grid Access Map</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
+  <script src="/config.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; color: #222; }
+    #map { position: absolute; inset: 0; }
+    .panel {
+      position: absolute; top: 12px; left: 12px; width: 300px; max-width: calc(100% - 56px);
+      background: rgba(255, 255, 255, 0.96); padding: 12px 14px; border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); font-size: 13px; line-height: 1.45;
+    }
+    .panel h1 { font-size: 16px; margin: 0 0 6px; }
+    .panel p { margin: 6px 0; }
+    .toggle { display: flex; gap: 0; margin: 8px 0; }
+    .toggle button {
+      flex: 1; padding: 6px; border: 1px solid #888; background: #fff; cursor: pointer; font: inherit;
+    }
+    .toggle button:first-child { border-radius: 6px 0 0 6px; }
+    .toggle button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+    .toggle button.on { background: #222; color: #fff; border-color: #222; }
+    .legend div { display: flex; align-items: center; }
+    .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; border: 1px solid #0002; }
+    .muted { color: #666; font-size: 11px; }
+    .mapboxgl-popup-content { font-size: 13px; line-height: 1.45; max-width: 320px; }
+    .mapboxgl-popup-content h2 { font-size: 15px; margin: 0 0 2px; }
+    .tag { background: #fff4d6; border-left: 3px solid #e0a800; padding: 4px 8px; margin: 6px 0; font-size: 12px; }
+    .big { font-size: 15px; font-weight: 600; margin: 6px 0 2px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
+    td, th { text-align: left; padding: 2px 4px; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="panel">
+    <h1>Grid Access Map</h1>
+    <div class="toggle">
+      <button data-tech="wind" class="on">Wind</button>
+      <button data-tech="solar">Solar</button>
+    </div>
+    <p id="summary"></p>
+    <div class="legend" id="legend"></div>
+    <p class="muted">Shows Eskom's planned 2025 grid, which assumes planned projects are complete.</p>
+    <p class="muted">Click a zone for the reason and sources. Western Cape supply area, Eskom GCCA 2025 zones.
+      Indicative only; a budget quote from NTCSA is the binding answer.</p>
+  </div>
+  <script>
+    const STEPS = [
+      [0, "#e3e3e3", "0 MW (full)"],
+      [1, "#c7e9c0", "1 to 199 MW"],
+      [200, "#74c476", "200 to 499 MW"],
+      [500, "#238b45", "500 MW or more"],
+    ];
+    let tech = "wind";
+    let zones = null;
+
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const mw = v => v === null || v === undefined ? "no data" : `${Math.round(v).toLocaleString("en-ZA")} MW`;
+
+    document.getElementById("legend").innerHTML = STEPS
+      .map(([, c, label]) => `<div><span style="background:${c}"></span>${label}</div>`).join("") +
+      `<div><span style="background:#fff"></span>No results</div>`;
+
+    function colourBy(field) {
+      return ["case", ["==", ["get", field], null], "#ffffff",
+        ["step", ["get", field], STEPS[0][1], ...STEPS.slice(1).flatMap(([v, c]) => [v, c])]];
+    }
+
+    function updateSummary() {
+      const fs = zones.features.map(f => f.properties);
+      const el = document.getElementById("summary");
+      if (tech === "wind") {
+        const open = fs.filter(p => p.wind_mw > 0);
+        const total = open.reduce((a, p) => a + p.curtailment_mw, 0);
+        el.innerHTML = `<strong>${mw(total)}</strong> of new wind in ${open.length} of ${fs.length} zones, ` +
+          `through curtailment (about 4%), valid ${esc(fs[0].curtailment_valid)}.`;
+      } else {
+        const open = fs.filter(p => p.solar_mw > 0);
+        el.innerHTML = open.length
+          ? `<strong>${open.length}</strong> of ${fs.length} zones have solar capacity.`
+          : `<strong>No solar capacity</strong> in any of the ${fs.length} zones: the Western Cape supply area limit is 0 MW.`;
+      }
+    }
+
+    function popupHtml(p) {
+      // Mapbox hands nested properties back as JSON strings; the raw GeoJSON has arrays.
+      const parse = v => typeof v === "string" ? JSON.parse(v) : v;
+      const groups = parse(p.groups);
+      const value = tech === "wind" ? p.wind_mw : p.solar_mw;
+      let html = `<h2>${esc(p.substation)}</h2><div class="muted">${esc(p.localarea)} local area</div>`;
+      if (p.status_note) html += `<p class="tag">${esc(p.status_note)}</p>`;
+      html += `<div class="big">${tech === "wind" ? "Wind" : "Solar"}: up to ${mw(value)}</div>`;
+
+      if (tech === "wind") {
+        if (p.curtailment_mw > 0) {
+          html += `<p>From the curtailment allocation, valid ${esc(p.curtailment_valid)}.`;
+          if (p.curtailment_shared_with) html += ` <strong>Shared with ${esc(p.curtailment_shared_with)}.</strong>`;
+          html += `</p>`;
+        }
+        html += `<p><strong>Why:</strong> ${esc(p.curtailment_reason)}</p>`;
+      }
+      html += `<p><strong>Base GCCA 2025${tech === "wind" ? " (before curtailment)" : ""}:</strong> ${esc(p.base_reason)}</p>`;
+
+      if (groups.length) {
+        html += `<table><tr><th>Transformers</th><th>Limit</th><th>Set by</th></tr>` +
+          groups.map(g => `<tr><td>${esc(g.kv)} kV</td><td>${mw(g.binding_mw)}</td><td>${esc(g.limited_by.join(", "))}</td></tr>`).join("") +
+          `</table>`;
+      }
+      html += `<p class="muted">Sources: ${esc(p.source_base)}` +
+        (tech === "wind" ? `; ${esc(p.source_curtailment)}` : "") + `.</p>`;
+      return html;
+    }
+
+    if (!window.MAPBOX_TOKEN) {
+      document.body.insertAdjacentHTML("beforeend",
+        '<p style="position:absolute;bottom:12px;left:12px;background:#fee;padding:8px">Missing MAPBOX_TOKEN in .env</p>');
+    }
+    mapboxgl.accessToken = window.MAPBOX_TOKEN;
+
+    const map = new mapboxgl.Map({
+      container: "map",
+      style: "mapbox://styles/mapbox/light-v11",
+      center: [20.5, -33.2],
+      zoom: 6,
+    });
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    map.on("load", async () => {
+      zones = await (await fetch("/data/western_cape_capacity.geojson")).json();
+      map.addSource("zones", { type: "geojson", data: zones, generateId: true });
+
+      map.addLayer({
+        id: "zones-fill", type: "fill", source: "zones",
+        paint: {
+          "fill-color": colourBy("wind_mw"),
+          "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.85, 0.65],
+        },
+      });
+      map.addLayer({
+        id: "zones-line", type: "line", source: "zones",
+        paint: { "line-color": "#444", "line-width": 0.8 },
+      });
+      map.addLayer({
+        id: "zones-label", type: "symbol", source: "zones",
+        layout: { "text-field": ["get", "substation"], "text-size": 12 },
+        paint: { "text-color": "#222", "text-halo-color": "#fff", "text-halo-width": 1.2 },
+      });
+
+      const bounds = new mapboxgl.LngLatBounds();
+      zones.features.forEach(f => {
+        const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+        polys.forEach(p => p[0].forEach(c => bounds.extend(c)));
+      });
+      map.fitBounds(bounds, { padding: 40 });
+      updateSummary();
+
+      let hovered = null;
+      map.on("mousemove", "zones-fill", e => {
+        if (hovered !== null) map.setFeatureState({ source: "zones", id: hovered }, { hover: false });
+        hovered = e.features[0].id;
+        map.setFeatureState({ source: "zones", id: hovered }, { hover: true });
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "zones-fill", () => {
+        if (hovered !== null) map.setFeatureState({ source: "zones", id: hovered }, { hover: false });
+        hovered = null;
+        map.getCanvas().style.cursor = "";
+      });
+      map.on("click", "zones-fill", e => {
+        new mapboxgl.Popup({ maxWidth: "340px" })
+          .setLngLat(e.lngLat).setHTML(popupHtml(e.features[0].properties)).addTo(map);
+      });
+    });
+
+    document.querySelectorAll(".toggle button").forEach(btn => btn.addEventListener("click", () => {
+      tech = btn.dataset.tech;
+      document.querySelectorAll(".toggle button").forEach(b => b.classList.toggle("on", b === btn));
+      if (!zones) return;
+      map.setPaintProperty("zones-fill", "fill-color", colourBy(tech === "wind" ? "wind_mw" : "solar_mw"));
+      updateSummary();
+    }));
+  </script>
+</body>
+</html>

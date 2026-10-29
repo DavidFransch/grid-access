@@ -6,11 +6,11 @@ A map of where new solar and wind projects in South Africa can realistically con
 
 ## How to work with David
 
-- Use the Learning approach: write routine code yourself, and leave real design decisions to David as `TODO(human)` with context, the task, and what to weigh. Then wait.
-- Teach first, then ask. Explain the idea in plain language before asking him to write anything.
-- Small pieces: one idea, a few lines, run it, continue.
-- Plain language, warm but direct. No em dashes, no hype. Clarify assumptions before advising.
-- Never invent facts about the data. If something is unknown, say so and say how to check it.
+- Build fast. Claude writes the code; David reviews and makes the product and data decisions. Don't ask him to write code.
+- Put real decisions to David as short questions with a recommendation: what the map shows, which data counts, what is honest to claim, who it is for. Make routine engineering choices yourself and mention them in one line.
+- Keep explanations short: one or two lines on why, so David can explain every choice to NTCSA or in an interview.
+- Ship visible results early. Prefer a working map over a perfect pipeline.
+- Plain language, warm but direct. No em dashes, no hype. Never invent facts about the data. If something is unknown, say so and say how to check it.
 - David commits and pushes himself. Suggest a commit message at the end of a session; only commit if he asks.
 - Add one line to `docs/decisions.md` for every real choice (date, decision, why).
 
@@ -18,8 +18,8 @@ A map of where new solar and wind projects in South Africa can realistically con
 
 | Stage | What | Status |
 | --- | --- | --- |
-| 1 | Western Cape substation zones (2025 GIS) on Mapbox, reprojected to WGS84 | In progress: `pipeline/load_zones.py` |
-| 2 | Binding limit per zone + reason + technology filter + wind curtailment, every number with its source | Next |
+| 1 | Western Cape substation zones (2025 GIS) on Mapbox, reprojected to WGS84 | Done: `pipeline/load_zones.py`, `web/` |
+| 2 | Binding limit per zone + reason + technology filter + wind curtailment, every number with its source | First version: `pipeline/binding_limit.py`; needs David's review |
 | 3 | Postgres/PostGIS, FastAPI, Pydantic serving the map | |
 | 4 | History across GCCA editions (PDF extraction, name matching across editions) | |
 | 5 | Demand: dated snapshots of the connections dashboard per supply area | |
@@ -50,7 +50,8 @@ data/file-manifest.csv   original name, new path, SHA-256, source for every raw 
 ## Domain facts (checked against the files)
 
 - Capacity at a site is the **lowest** of four limits: substation, substation area, local area, supply area (GCCA 2025 report). The level that sets it is the "binding" limit.
-- The 2025 results spreadsheet (`gcca-2025_results_2023-09.xlsx`) has one row per transformer group. Some substations have several rows (Stikland has three). Which row represents a site is an open decision for David.
+- The 2025 results spreadsheet (`gcca-2025_results_2023-09.xlsx`) has one row per transformer group. Some substations have several rows (Stikland has three). A zone shows "up to" the highest row's binding limit; the popup lists every row (decided 2026-10-29).
+- Curtailment allocations are hand-entered in `data/manual/curtailment_2025-10.csv` (git-ignored) from the Oct 2025 update, Table 4 and notes, printed pp. 7-8. That page calls both Nuweveld and Galenia "planned" self-build substations.
 - Western Cape supply area limit is 0 MW, so every Western Cape substation is 0 MW in the base results.
 - The October 2025 curtailment update adds 1,180 MW for the Western Cape, **wind only**, about 4% curtailment, valid 1 Apr 2025 to 31 Mar 2028: Nuweveld/Galenia 720 combined (Nuweveld is a planned self-build substation), Droërivier 220, Bacchus 140, Agulhas 100; Komsberg, Kappa, Aurora, Muldersvlei 0. It supersedes the Jan 2024 addendum (10%, 2,680 MW).
 - 2025 GIS zones (`gcca-2025/gis/MTS_ZONES_GCCA2025.shp`): 159 polygons, 16 in the Western Cape, CRS EPSG:4148 (Hartebeesthoek94). Reproject to EPSG:4326 for Mapbox.
@@ -64,4 +65,6 @@ data/file-manifest.csv   original name, new path, SHA-256, source for every raw 
 source .venv/bin/activate
 pip install -r requirements.txt
 python pipeline/load_zones.py
+python pipeline/binding_limit.py
+python web/serve.py   # map at http://localhost:8000, localhost only
 ```
